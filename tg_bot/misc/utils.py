@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Union, List, Dict, Optional
+from typing import Union, List, Dict, Optional, Callable
 
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton
@@ -13,6 +13,7 @@ from config import Config
 logger = logging.getLogger(__name__)
 localization: Dict[str, Dict] = {}
 msg_to_delete = {"secondary": {}}
+global_variables: Dict = {}
 
 
 class AdditionalButtons(BaseModel):
