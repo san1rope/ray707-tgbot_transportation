@@ -106,6 +106,26 @@
     "order_create_finish_error": [
       "<b>\uD83D\uDED1 Не удалось завершить заполнение!</b>\n",
       "<b>Попробуйте ещё раз!</b>"
+    ],
+    "my_order_list_is_empty": [
+      "<b>\uD83D\uDCC4 У вас нету активных заказов!</b>"
+    ],
+    "my_order_list_title": [
+      "<b>❇\uFE0F Список заказов</b>",
+      "\n<b>Ниже представлен список ваших активных заказов:</b>",
+      "\n<b>⬇\uFE0F Что-бы вернуться назад используйте клавиатуру ниже</b>"
+    ],
+    "my_order_list_order_text": [
+      "<b>❇\uFE0F Заказ №%order_id%</b>",
+      "\n<b>Состояние: %order_status%</b>",
+      "\n<b>Название: %order_name%</b>",
+      "<b>Телефон: %order_phone%</b>",
+      "<b>Адрес: %order_address%</b>",
+      "<b>Описание: %order_description%</b>",
+      "<b>Вес: %order_weight%</b>",
+      "<b>Количество палетов: %order_pallets%</b>",
+      "<b>Время доставки: %order_delivery_time%</b>",
+      "<b>Комментарий: %order_comment%</b>"
     ]
   },
   "markups": {
@@ -116,7 +136,9 @@
     },
     "inline": {
       "additional_buttons": {
-        "skip": "Пропустить"
+        "skip": "Пропустить",
+        "back": "\uD83D\uDD19 Назад",
+        "rotate_to_start": "\uD83D\uDD19 В меню"
       },
       "choose_lang": [
         {

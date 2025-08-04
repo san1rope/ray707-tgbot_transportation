@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 localization: Dict[str, Dict] = {}
 msg_to_delete = {"secondary": {}}
 global_variables: Dict = {}
+call_functions = {}
 
 
 class AdditionalButtons(BaseModel):

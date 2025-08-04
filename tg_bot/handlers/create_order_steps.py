@@ -12,7 +12,7 @@ from tg_bot.keyboards.default import request_contact_default
 from tg_bot.keyboards.inline import CustomInlineMarkups as Cim
 from tg_bot.misc.models import OrderForm
 from tg_bot.misc.states import CreateOrder
-from tg_bot.misc.utils import Utils as Ut, AdditionalButtons
+from tg_bot.misc.utils import Utils as Ut, AdditionalButtons, call_functions, global_variables
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -38,7 +38,10 @@ class OrderCreationSteps:
         text_question = await Ut.get_message_text(key="order_create_write_name", lang=lang)
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
-        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question])
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
         await state.set_state(CreateOrder.WriteName)
 
     @classmethod
@@ -46,26 +49,33 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        db_user = await DbUser(tg_user_id=uid).select()
+        data = await state.get_data()
         if isinstance(message, types.CallbackQuery):
             await message.answer()
 
+            if message.data == "back":
+                await state.clear()
+                return await global_variables["func_cmd_start"](message=message, state=state)
+
             return
 
-        db_user = await DbUser(tg_user_id=uid).select()
         name = message.text.strip()
         if len(name) < 4:
             text = await Ut.get_message_text(key="wrong_name_format", lang=db_user.language)
             msg = await message.answer(text=text)
             return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
 
-        data = await state.get_data()
         await data["call_function"](state=state, returned_data=name)
 
     @classmethod
     async def phone(cls, state: FSMContext, lang: str, data_model: Optional[Union[OrderForm, Order]] = None):
         text_question = await Ut.get_message_text(key="order_create_write_phone", lang=lang)
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
-        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question])
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
 
         text_question = await Ut.get_message_text(key="order_create_request_contact", lang=lang)
         msg = await Config.BOT.send_message(chat_id=state.key.user_id, text=text_question,
@@ -79,8 +89,17 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        db_user = await DbUser(tg_user_id=uid).select()
+        data = await state.get_data()
         if isinstance(message, types.CallbackQuery):
             await message.answer()
+
+            if message.data == "back":
+                order_model: OrderForm = data["order_model"]
+                order_model.name = None
+                await state.update_data(order_model=order_model, call_function=call_functions["phone"])
+
+                return await cls.name(state=state, lang=db_user.language, data_model=order_model)
 
             return
 
@@ -109,7 +128,10 @@ class OrderCreationSteps:
         text_question = await Ut.get_message_text(key="order_create_write_address", lang=lang)
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
-        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question])
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
         await state.set_state(CreateOrder.WriteAddress)
 
     @classmethod
@@ -117,12 +139,22 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        data = await state.get_data()
+        db_user = await DbUser(tg_user_id=uid).select()
         if isinstance(message, types.CallbackQuery):
             await message.answer()
 
+            if message.data == "back":
+                db_user = await DbUser(tg_user_id=uid).select()
+
+                order_model: OrderForm = data["order_model"]
+                order_model.phone = None
+                await state.update_data(order_model=order_model, call_function=call_functions["address"])
+
+                return await cls.phone(state=state, lang=db_user.language, data_model=order_model)
+
             return
 
-        db_user = await DbUser(tg_user_id=uid).select()
         address = message.text.strip()
         if len(address) < 10:
             text = await Ut.get_message_text(key="wrong_address_format", lang=db_user.language)
@@ -137,7 +169,10 @@ class OrderCreationSteps:
         text_question = await Ut.get_message_text(key="order_create_write_description", lang=lang)
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
-        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question])
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
         await state.set_state(CreateOrder.WriteDescription)
 
     @classmethod
@@ -145,19 +180,28 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        data = await state.get_data()
+        db_user = await DbUser(tg_user_id=uid).select()
         if isinstance(message, types.CallbackQuery):
             await message.answer()
 
+            if message.data == "back":
+                db_user = await DbUser(tg_user_id=uid).select()
+
+                order_model: OrderForm = data["order_model"]
+                order_model.address = None
+                await state.update_data(order_model=order_model, call_function=call_functions["description"])
+
+                return await cls.address(state=state, lang=db_user.language, data_model=order_model)
+
             return
 
-        db_user = await DbUser(tg_user_id=uid).select()
         description = message.text.strip()
         if len(description) < 10:
             text = await Ut.get_message_text(key="wrong_description_format", lang=db_user.language)
             msg = await message.answer(text=text)
             return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
 
-        data = await state.get_data()
         await data["call_function"](state=state, returned_data=description)
 
     @classmethod
@@ -165,7 +209,10 @@ class OrderCreationSteps:
         text_question = await Ut.get_message_text(key="order_create_write_weight", lang=lang)
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
-        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question])
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
         await state.set_state(CreateOrder.WriteWeight)
 
     @classmethod
@@ -173,14 +220,23 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        data = await state.get_data()
         if isinstance(message, types.CallbackQuery):
             await message.answer()
+
+            if message.data == "back":
+                db_user = await DbUser(tg_user_id=uid).select()
+
+                order_model: OrderForm = data["order_model"]
+                order_model.description = None
+                await state.update_data(order_model=order_model, call_function=call_functions["weight"])
+
+                return await cls.description(state=state, lang=db_user.language, data_model=order_model)
 
             return
 
         weight = message.text.strip()
 
-        data = await state.get_data()
         await data["call_function"](state=state, returned_data=weight)
 
     @classmethod
@@ -188,7 +244,10 @@ class OrderCreationSteps:
         text_question = await Ut.get_message_text(key="order_create_write_number_of_pallets", lang=lang)
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
-        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question])
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
         await state.set_state(CreateOrder.WritePallets)
 
     @classmethod
@@ -196,14 +255,26 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        data = await state.get_data()
         db_user = await DbUser(tg_user_id=uid).select()
+        if isinstance(message, types.CallbackQuery):
+            await message.answer()
+
+            if message.data == "back":
+                order_model: OrderForm = data["order_model"]
+                order_model.weight = None
+                await state.update_data(order_model=order_model, call_function=call_functions["pallets"])
+
+                return await cls.weight(state=state, lang=db_user.language, data_model=order_model)
+
+            return
+
         number_of_pallets = message.text.strip()
         if not number_of_pallets.isdigit():
             text = await Ut.get_message_text(key="wrong_number_of_pallets_format", lang=db_user.language)
             msg = await message.answer(text=text)
             return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
 
-        data = await state.get_data()
         await data["call_function"](state=state, returned_data=number_of_pallets)
 
     @classmethod
@@ -211,7 +282,6 @@ class OrderCreationSteps:
                                  data_model: Optional[Union[OrderForm, Order]] = None):
         text_question = await Ut.get_message_text(key="order_create_choose_delivery_time_date", lang=lang)
         markup = await Cim.calendar(date_time=datetime.now(tz=Config.TIMEZONE), lang=lang)
-
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
         await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
@@ -224,6 +294,7 @@ class OrderCreationSteps:
         await Ut.handler_log(logger, uid)
 
         db_user = await DbUser(tg_user_id=uid).select()
+        data = await state.get_data()
 
         cd = callback.data
         if "l:" in cd:
@@ -243,8 +314,14 @@ class OrderCreationSteps:
         elif "." in cd:
             returned_value = datetime.strptime(cd, "%d.%m.%Y")
 
-            data = await state.get_data()
             await data["call_function"](state=state, returned_data=returned_value)
+
+        elif "back" == cd:
+            order_model: OrderForm = data["order_model"]
+            order_model.pallets = None
+            await state.update_data(order_model=order_model, call_function=call_functions["delivery_time_date"])
+
+            return await cls.pallets(state=state, lang=db_user.language, data_model=order_model)
 
     @classmethod
     async def delivery_time_hours(cls, state: FSMContext, lang: str,
@@ -252,7 +329,10 @@ class OrderCreationSteps:
         text_question = await Ut.get_message_text(key="order_create_choose_delivery_time_hours", lang=lang)
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
-        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question])
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
         await state.set_state(CreateOrder.WriteDeliveryTimeHours)
 
     @classmethod
@@ -260,12 +340,20 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        data = await state.get_data()
+        db_user = await DbUser(tg_user_id=uid).select()
         if isinstance(message, types.CallbackQuery):
             await message.answer()
 
+            if message.data == "back":
+                order_model: OrderForm = data["order_model"]
+                order_model.delivery_time = None
+                await state.update_data(order_model=order_model, call_function=call_functions["delivery_time_hours"])
+
+                return await cls.delivery_time_date(state=state, lang=db_user.language, data_model=order_model)
+
             return
 
-        db_user = await DbUser(tg_user_id=uid).select()
         hours = message.text.strip()
 
         try:
@@ -276,13 +364,12 @@ class OrderCreationSteps:
             msg = await message.answer(text=text)
             return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
 
-        data = await state.get_data()
         await data["call_function"](state=state, returned_data=hours)
 
     @classmethod
     async def comment(cls, state: FSMContext, lang: str, data_model: Optional[Union[OrderForm, Order]] = None):
         text_question = await Ut.get_message_text(key="order_create_write_comment", lang=lang)
-        additional_buttons = [AdditionalButtons(buttons={"skip": None})]
+        additional_buttons = [AdditionalButtons(buttons={"skip": None}), AdditionalButtons(buttons={"back": None})]
         markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
 
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
@@ -295,11 +382,21 @@ class OrderCreationSteps:
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
+        data = await state.get_data()
+
         if isinstance(message, types.CallbackQuery):
             await message.answer()
 
             if message.data == "skip":
                 comment = None
+
+            elif message.data == "back":
+                db_user = await DbUser(tg_user_id=uid).select()
+                order_model: OrderForm = data["order_model"]
+                order_model.delivery_time = order_model.delivery_time.replace(hour=0, minute=0)
+                await state.update_data(order_model=order_model, call_function=call_functions["comment"])
+
+                return await cls.delivery_time_hours(state=state, lang=db_user.language, data_model=order_model)
 
             else:
                 return
@@ -307,7 +404,6 @@ class OrderCreationSteps:
         else:
             comment = message.text.strip()
 
-        data = await state.get_data()
         await data["call_function"](state=state, returned_data=comment)
 
 

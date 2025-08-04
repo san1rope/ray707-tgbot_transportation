@@ -14,6 +14,7 @@ router = Router()
 
 
 @router.message(F.chat.type == enums.ChatType.PRIVATE, CommandStart())
+@router.callback_query(F.data == "rotate_to_start")
 async def cmd_start(message: Union[types.Message, types.CallbackQuery], state: FSMContext):
     uid = message.from_user.id
     await Ut.handler_log(logger, uid)

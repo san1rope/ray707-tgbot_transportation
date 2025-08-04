@@ -10,7 +10,7 @@ from tg_bot.db_models.quick_commands import DbUser, DbOrder
 from tg_bot.handlers.create_order_steps import OrderCreationSteps
 from tg_bot.misc.models import OrderForm
 from tg_bot.misc.states import CreateOrder
-from tg_bot.misc.utils import Utils as Ut, global_variables
+from tg_bot.misc.utils import Utils as Ut, global_variables, AdditionalButtons, call_functions
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -132,7 +132,10 @@ async def form_confirmation(state: FSMContext, returned_data: Union[str, int]):
 
     text_question = await Ut.get_message_text(key="order_create_confirmation", lang=db_user.language)
     text_form = await order_model.form_completion(lang=db_user.language)
-    markup = await Ut.get_markup(mtype="inline", key="confirmation", lang=db_user.language)
+
+    additional_buttons = [AdditionalButtons(buttons={"back": None})]
+    markup = await Ut.get_markup(mtype="inline", key="confirmation", lang=db_user.language,
+                                 additional_buttons=additional_buttons)
     await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
 
     await state.set_state(CreateOrder.FormConfirmation)
@@ -165,3 +168,16 @@ async def create_finish(callback: types.CallbackQuery, state: FSMContext):
 
         await asyncio.sleep(2)
         await global_variables["func_cmd_start"](message=callback, state=state)
+
+    elif cd == "back":
+        order_model.comment = None
+        await state.update_data(order_model=order_model, call_function=form_confirmation)
+
+        return await OrderCreationSteps().comment(state=state, data_model=order_model, lang=db_user.language)
+
+
+call_functions.update({
+    "name": write_name, "phone": write_phone, "address": write_address, "description": write_description,
+    "weight": write_weight, "pallets": write_number_of_pallets, "delivery_time_date": choose_delivery_time_date,
+    "delivery_time_hours": choose_delivery_time_hours, "comment": write_comment
+})

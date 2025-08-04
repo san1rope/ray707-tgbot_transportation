@@ -64,4 +64,7 @@ class CustomInlineMarkups:
 
         markup.inline_keyboard.append([left, current_month, right])
 
+        back_btn_text = lang_data["markups"]["inline"]["additional_buttons"]["back"]
+        markup.inline_keyboard.append([InlineKeyboardButton(text=back_btn_text, callback_data="back")])
+
         return markup
