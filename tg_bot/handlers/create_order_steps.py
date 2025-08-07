@@ -69,8 +69,8 @@ class OrderCreationSteps:
         await data["call_function"](state=state, returned_data=name)
 
     @classmethod
-    async def phone(cls, state: FSMContext, lang: str, data_model: Optional[Union[OrderForm, Order]] = None):
-        text_question = await Ut.get_message_text(key="order_create_write_phone", lang=lang)
+    async def phone_manager(cls, state: FSMContext, lang: str, data_model: Optional[Union[OrderForm, Order]] = None):
+        text_question = await Ut.get_message_text(key="order_create_write_phone_manager", lang=lang)
         additional_buttons = [AdditionalButtons(buttons={"back": None})]
         markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
 
@@ -82,10 +82,10 @@ class OrderCreationSteps:
                                             reply_markup=await request_contact_default(lang=lang))
         await Ut.add_msg_to_delete(user_id=state.key.user_id, msg_id=msg.message_id)
 
-        await state.set_state(CreateOrder.WritePhone)
+        await state.set_state(CreateOrder.WritePhoneManager)
 
     @classmethod
-    async def phone_handler(cls, message: [types.Message, types.CallbackQuery], state: FSMContext):
+    async def phone_manager_handler(cls, message: [types.Message, types.CallbackQuery], state: FSMContext):
         uid = message.from_user.id
         await Ut.handler_log(logger, uid)
 
@@ -97,7 +97,7 @@ class OrderCreationSteps:
             if message.data == "back":
                 order_model: OrderForm = data["order_model"]
                 order_model.name = None
-                await state.update_data(order_model=order_model, call_function=call_functions["phone"])
+                await state.update_data(order_model=order_model, call_function=call_functions["phone_manager"])
 
                 return await cls.name(state=state, lang=db_user.language, data_model=order_model)
 
@@ -119,6 +119,52 @@ class OrderCreationSteps:
                 text = await Ut.get_message_text(key="phone_number_range_limit", lang=db_user.language)
                 msg = await message.answer(text=text)
                 return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
+
+        data = await state.get_data()
+        await data["call_function"](state=state, returned_data=phone_number)
+
+    @classmethod
+    async def phone_receiver(cls, state: FSMContext, lang: str, data_model: Optional[Union[OrderForm, Order]] = None):
+        text_question = await Ut.get_message_text(key="order_create_write_phone_receiver", lang=lang)
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+
+        text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
+
+        await state.set_state(CreateOrder.WritePhoneReceiver)
+
+    @classmethod
+    async def phone_receiver_handler(cls, message: [types.Message, types.CallbackQuery], state: FSMContext):
+        uid = message.from_user.id
+        await Ut.handler_log(logger, uid)
+
+        db_user = await DbUser(tg_user_id=uid).select()
+        data = await state.get_data()
+        if isinstance(message, types.CallbackQuery):
+            await message.answer()
+
+            if message.data == "back":
+                order_model: OrderForm = data["order_model"]
+                order_model.phone_manager = None
+                await state.update_data(order_model=order_model, call_function=call_functions["phone_receiver"])
+
+                return await cls.phone_manager(state=state, lang=db_user.language, data_model=order_model)
+
+            return
+
+        db_user = await DbUser(tg_user_id=uid).select()
+
+        phone_number = message.text.strip().replace("+", "")
+        if not phone_number.isdigit():
+            text = await Ut.get_message_text(key="wrong_phone_number_format", lang=db_user.language)
+            msg = await message.answer(text=text)
+            return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
+
+        if not (10 <= len(phone_number) <= 15):
+            text = await Ut.get_message_text(key="phone_number_range_limit", lang=db_user.language)
+            msg = await message.answer(text=text)
+            return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
 
         data = await state.get_data()
         await data["call_function"](state=state, returned_data=phone_number)
@@ -148,10 +194,10 @@ class OrderCreationSteps:
                 db_user = await DbUser(tg_user_id=uid).select()
 
                 order_model: OrderForm = data["order_model"]
-                order_model.phone = None
+                order_model.phone_receiver = None
                 await state.update_data(order_model=order_model, call_function=call_functions["address"])
 
-                return await cls.phone(state=state, lang=db_user.language, data_model=order_model)
+                return await cls.phone_receiver(state=state, lang=db_user.language, data_model=order_model)
 
             return
 
@@ -163,6 +209,36 @@ class OrderCreationSteps:
 
         data = await state.get_data()
         await data["call_function"](state=state, returned_data=address)
+
+    @classmethod
+    async def body_type(cls, state: FSMContext, lang: str, data_model: Optional[Union[OrderForm, Order]] = None):
+        text_question = await Ut.get_message_text(key="order_create_body_type", lang=lang)
+        text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
+
+        additional_buttons = [AdditionalButtons(buttons={"back": None})]
+        markup = await Ut.get_markup(lang=lang, mtype="inline", key="body_types", additional_buttons=additional_buttons)
+
+        await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
+        await state.set_state(CreateOrder.ChooseBodyType)
+
+    @classmethod
+    async def body_type_handler(cls, callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer()
+        uid = callback.from_user.id
+        await Ut.handler_log(logger, uid)
+
+        data = await state.get_data()
+        db_user = await DbUser(tg_user_id=uid).select()
+
+        if callback.data == "back":
+            order_model: OrderForm = data["order_model"]
+            order_model.address = None
+            await state.update_data(order_model=order_model, call_function=call_functions["body_type"])
+
+            return await cls.address(state=state, lang=db_user.language, data_model=order_model)
+
+        else:
+            await data["call_function"](state=state, returned_data=callback.data)
 
     @classmethod
     async def description(cls, state: FSMContext, lang: str, data_model: Optional[Union[OrderForm, Order]] = None):
@@ -189,10 +265,10 @@ class OrderCreationSteps:
                 db_user = await DbUser(tg_user_id=uid).select()
 
                 order_model: OrderForm = data["order_model"]
-                order_model.address = None
+                order_model.body_type = None
                 await state.update_data(order_model=order_model, call_function=call_functions["description"])
 
-                return await cls.address(state=state, lang=db_user.language, data_model=order_model)
+                return await cls.body_type(state=state, lang=db_user.language, data_model=order_model)
 
             return
 
@@ -245,37 +321,28 @@ class OrderCreationSteps:
         text_form = await cls.model_form_correct(lang=lang, data_model=data_model)
 
         additional_buttons = [AdditionalButtons(buttons={"back": None})]
-        markup = await Ut.get_markup(lang=lang, mtype="inline", additional_buttons=additional_buttons)
+        markup = await Ut.get_markup(lang=lang, mtype="inline", key="pallets", additional_buttons=additional_buttons)
 
         await Ut.send_step_message(user_id=state.key.user_id, texts=[text_form, text_question], markups=[None, markup])
         await state.set_state(CreateOrder.WritePallets)
 
     @classmethod
-    async def pallets_handler(cls, message: [types.Message, types.CallbackQuery], state: FSMContext):
-        uid = message.from_user.id
+    async def pallets_handler(cls, callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer()
+        uid = callback.from_user.id
         await Ut.handler_log(logger, uid)
 
         data = await state.get_data()
         db_user = await DbUser(tg_user_id=uid).select()
-        if isinstance(message, types.CallbackQuery):
-            await message.answer()
 
-            if message.data == "back":
-                order_model: OrderForm = data["order_model"]
-                order_model.weight = None
-                await state.update_data(order_model=order_model, call_function=call_functions["pallets"])
+        if callback.data == "back":
+            order_model: OrderForm = data["order_model"]
+            order_model.weight = None
+            await state.update_data(order_model=order_model, call_function=call_functions["pallets"])
 
-                return await cls.weight(state=state, lang=db_user.language, data_model=order_model)
+            return await cls.weight(state=state, lang=db_user.language, data_model=order_model)
 
-            return
-
-        number_of_pallets = message.text.strip()
-        if not number_of_pallets.isdigit():
-            text = await Ut.get_message_text(key="wrong_number_of_pallets_format", lang=db_user.language)
-            msg = await message.answer(text=text)
-            return await Ut.add_msg_to_delete(user_id=uid, msg_id=msg.message_id)
-
-        await data["call_function"](state=state, returned_data=number_of_pallets)
+        await data["call_function"](state=state, returned_data=callback.data)
 
     @classmethod
     async def delivery_time_date(cls, state: FSMContext, lang: str,
@@ -409,15 +476,17 @@ class OrderCreationSteps:
 
 router.message.register(OrderCreationSteps.name_handler, CreateOrder.WriteName)
 router.callback_query.register(OrderCreationSteps.name_handler, CreateOrder.WriteName)
-router.message.register(OrderCreationSteps.phone_handler, CreateOrder.WritePhone)
-router.callback_query.register(OrderCreationSteps.phone_handler, CreateOrder.WritePhone)
+router.message.register(OrderCreationSteps.phone_manager_handler, CreateOrder.WritePhoneManager)
+router.callback_query.register(OrderCreationSteps.phone_manager_handler, CreateOrder.WritePhoneManager)
+router.message.register(OrderCreationSteps.phone_receiver_handler, CreateOrder.WritePhoneReceiver)
+router.callback_query.register(OrderCreationSteps.phone_receiver_handler, CreateOrder.WritePhoneReceiver)
 router.message.register(OrderCreationSteps.address_handler, CreateOrder.WriteAddress)
 router.callback_query.register(OrderCreationSteps.address_handler, CreateOrder.WriteAddress)
+router.callback_query.register(OrderCreationSteps.body_type_handler, CreateOrder.ChooseBodyType)
 router.message.register(OrderCreationSteps.description_handler, CreateOrder.WriteDescription)
 router.callback_query.register(OrderCreationSteps.description_handler, CreateOrder.WriteDescription)
 router.message.register(OrderCreationSteps.weight_handler, CreateOrder.WriteWeight)
 router.callback_query.register(OrderCreationSteps.weight_handler, CreateOrder.WriteWeight)
-router.message.register(OrderCreationSteps.pallets_handler, CreateOrder.WritePallets)
 router.callback_query.register(OrderCreationSteps.pallets_handler, CreateOrder.WritePallets)
 router.callback_query.register(OrderCreationSteps.delivery_time_date_handler, CreateOrder.WriteDeliveryTimeDate)
 router.message.register(OrderCreationSteps.delivery_time_hours_handler, CreateOrder.WriteDeliveryTimeHours)

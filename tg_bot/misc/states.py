@@ -7,8 +7,10 @@ class SetLanguage(StatesGroup):
 
 class CreateOrder(StatesGroup):
     WriteName = State()
-    WritePhone = State()
+    WritePhoneManager = State()
+    WritePhoneReceiver = State()
     WriteAddress = State()
+    ChooseBodyType = State()
     WriteDescription = State()
     WriteWeight = State()
     WritePallets = State()

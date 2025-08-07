@@ -23,8 +23,10 @@ class Order(TimedBaseModel):
     status = Column(Integer, nullable=False)
 
     name = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
+    phone_manager = Column(String, nullable=False)
+    phone_receiver = Column(String, nullable=False)
     address = Column(String, nullable=False)
+    body_type = Column(String, nullable=False)
     description = Column(String)
     weight = Column(String, nullable=False)
     pallets = Column(String)

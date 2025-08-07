@@ -1,10 +1,16 @@
 from calendar import Calendar
 from datetime import datetime
 
+from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import Config
 from tg_bot.misc.utils import localization
+
+
+class CustomCallback(CallbackData, prefix="cc"):
+    role: str
+    data: str
 
 
 class CustomInlineMarkups:
@@ -68,3 +74,41 @@ class CustomInlineMarkups:
         markup.inline_keyboard.append([InlineKeyboardButton(text=back_btn_text, callback_data="back")])
 
         return markup
+
+    @staticmethod
+    async def cancel_my_order(lang: str, order_id: str):
+        lang_data = localization[lang] if localization.get(lang) else localization[Config.DEFAULT_LANG]
+        cancel_text = lang_data["markups"]["inline"]["additional_buttons"]["cancel"]
+
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=cancel_text, callback_data=CustomCallback(role="cancel_my_order", data=order_id).pack()
+                    )
+                ]
+            ]
+        )
+
+    @staticmethod
+    async def cancel_order_confirmation(lang: str, order_id: str):
+        lang_data = localization[lang] if localization.get(lang) else localization[Config.DEFAULT_LANG]
+        add_buttons = lang_data["markups"]["inline"]["additional_buttons"]
+        confirm_text = add_buttons["confirm"]
+        back_text = add_buttons["back"]
+
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=confirm_text,
+                        callback_data=CustomCallback(role="cancel_my_order_confirm", data=order_id).pack()
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text=back_text, callback_data=CustomCallback(role="cancel_my_order_back", data=order_id).pack()
+                    )
+                ]
+            ]
+        )

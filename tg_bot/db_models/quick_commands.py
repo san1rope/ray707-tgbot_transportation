@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, Union, List
 
 from asyncpg import UniqueViolationError
+from sqlalchemy import and_
 
 from .schemas import *
 
@@ -73,15 +74,18 @@ class DbUser:
 
 class DbOrder:
     def __init__(self, db_id: Optional[int] = None, tg_user_id: Optional[int] = None, status: Optional[int] = None,
-                 name: Optional[str] = None, phone: Optional[str] = None, address: Optional[str] = None,
-                 description: Optional[str] = None, weight: Optional[str] = None, pallets: Optional[str] = None,
-                 delivery_time: Optional[datetime] = None, comment: Optional[str] = None):
+                 name: Optional[str] = None, phone_manager: Optional[str] = None, phone_receiver: Optional[str] = None,
+                 address: Optional[str] = None, description: Optional[str] = None, weight: Optional[str] = None,
+                 pallets: Optional[str] = None, delivery_time: Optional[datetime] = None,
+                 comment: Optional[str] = None, body_type: Optional[str] = None):
         self.db_id = db_id
         self.tg_user_id = tg_user_id
         self.status = status
         self.name = name
-        self.phone = phone
+        self.phone_manager = phone_manager
+        self.phone_receiver = phone_receiver
         self.address = address
+        self.body_type = body_type
         self.description = description
         self.weight = weight
         self.pallets = pallets
@@ -90,8 +94,9 @@ class DbOrder:
 
     async def add(self) -> Union[Order, bool]:
         try:
-            target = Order(tg_user_id=self.tg_user_id, status=self.status, name=self.name, phone=self.phone,
-                           address=self.address, description=self.description, weight=self.weight, pallets=self.pallets,
+            target = Order(tg_user_id=self.tg_user_id, status=self.status, name=self.name, body_type=self.body_type,
+                           phone_manager=self.phone_manager, phone_receiver=self.phone_receiver, address=self.address,
+                           description=self.description, weight=self.weight, pallets=self.pallets,
                            delivery_time=self.delivery_time, comment=self.comment)
             return await target.create()
 
@@ -106,8 +111,14 @@ class DbOrder:
             if self.db_id is not None:
                 return await q.where(Order.id == self.db_id).gino.first()
 
+            elif (self.tg_user_id is not None) and (self.status is not None):
+                return await q.where(and_(Order.tg_user_id == self.tg_user_id, Order.status == self.status)).gino.all()
+
             elif self.tg_user_id is not None:
                 return await q.where(Order.tg_user_id == self.tg_user_id).gino.all()
+
+            elif self.status is not None:
+                return await q.where(Order.status == self.status).gino.all()
 
             elif self.status is not None:
                 return await q.where(Order.status == self.status).gino.all()

@@ -28,38 +28,60 @@ async def write_name(message: Union[types.Message, types.CallbackQuery], state: 
     db_user = await DbUser(tg_user_id=uid).select()
 
     order_model = OrderForm()
-    await state.update_data(order_model=order_model, call_function=write_phone)
+    await state.update_data(order_model=order_model, call_function=write_phone_manager)
 
     await OrderCreationSteps().name(state=state, lang=db_user.language, data_model=order_model)
 
 
-async def write_phone(state: FSMContext, returned_data: Union[str, int]):
+async def write_phone_manager(state: FSMContext, returned_data: Union[str, int]):
     data = await state.get_data()
     order_model: OrderForm = data["order_model"]
 
     order_model.name = returned_data
+    await state.update_data(order_model=order_model, call_function=write_phone_receiver)
+
+    db_user = await DbUser(tg_user_id=state.key.user_id).select()
+    await OrderCreationSteps().phone_manager(state=state, data_model=order_model, lang=db_user.language)
+
+
+async def write_phone_receiver(state: FSMContext, returned_data: Union[str, int]):
+    data = await state.get_data()
+    order_model: OrderForm = data["order_model"]
+
+    order_model.phone_manager = returned_data
     await state.update_data(order_model=order_model, call_function=write_address)
 
     db_user = await DbUser(tg_user_id=state.key.user_id).select()
-    await OrderCreationSteps().phone(state=state, data_model=order_model, lang=db_user.language)
+    await OrderCreationSteps().phone_receiver(state=state, data_model=order_model, lang=db_user.language)
 
 
 async def write_address(state: FSMContext, returned_data: Union[str, int]):
     data = await state.get_data()
     order_model: OrderForm = data["order_model"]
 
-    order_model.phone = returned_data
-    await state.update_data(order_model=order_model, call_function=write_description)
+    order_model.phone_receiver = returned_data
+    await state.update_data(order_model=order_model, call_function=choose_body_type)
 
     db_user = await DbUser(tg_user_id=state.key.user_id).select()
     await OrderCreationSteps().address(state=state, data_model=order_model, lang=db_user.language)
+
+
+async def choose_body_type(state: FSMContext, returned_data: Union[str, int]):
+    data = await state.get_data()
+    order_model: OrderForm = data["order_model"]
+
+    order_model.address = returned_data
+    await state.update_data(order_model=order_model, call_function=write_description)
+
+    db_user = await DbUser(tg_user_id=state.key.user_id).select()
+    await OrderCreationSteps().body_type(state=state, data_model=order_model, lang=db_user.language)
 
 
 async def write_description(state: FSMContext, returned_data: Union[str, int]):
     data = await state.get_data()
     order_model: OrderForm = data["order_model"]
 
-    order_model.address = returned_data
+    order_model.body_type = returned_data
     await state.update_data(order_model=order_model, call_function=write_weight)
 
     db_user = await DbUser(tg_user_id=state.key.user_id).select()
@@ -177,7 +199,8 @@ async def create_finish(callback: types.CallbackQuery, state: FSMContext):
 
 
 call_functions.update({
-    "name": write_name, "phone": write_phone, "address": write_address, "description": write_description,
-    "weight": write_weight, "pallets": write_number_of_pallets, "delivery_time_date": choose_delivery_time_date,
-    "delivery_time_hours": choose_delivery_time_hours, "comment": write_comment
+    "name": write_name, "phone_manager": write_phone_manager, "phone_receiver": write_phone_receiver,
+    "address": write_address, "description": write_description, "weight": write_weight,
+    "pallets": write_number_of_pallets, "delivery_time_date": choose_delivery_time_date,
+    "delivery_time_hours": choose_delivery_time_hours, "comment": write_comment, "body_type": choose_body_type
 })
